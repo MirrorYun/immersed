@@ -1,0 +1,27 @@
+{
+  "rewrites": [
+    {
+      "source": "/page/(.+)",
+      "destination": "/api/page"
+    },
+    {
+      "source": "/_immersed_proxy/(.+)",
+      "destination": "/api/proxy"
+    },
+    {
+      "source": "/_immersed_rewrite/:schema(http|https)/:host/:path(.*)",
+      "destination": ":schema://:host/:path"
+    },
+    {
+      "source": "/_immersed_rewrite/:schema(http|https)/:host/:path(.*)",
+      "destination": ":schema://:host/:path",
+      "has": [
+        {
+          "type": "header",
+          "key": "x-immersed-version",
+          "value": "1\\.\\d\\.\\d"
+        }
+      ]
+    }
+  ]
+}

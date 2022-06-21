@@ -22,8 +22,12 @@
           "classnameTransform": "camelCaseOnly"
         }
       }
-    ]
+    ],
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"]
+    }
   },
-  "include": ["src"],
+  "include": ["src", "sw.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
