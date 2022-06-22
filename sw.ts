@@ -2,27 +2,47 @@
 declare const self: ServiceWorkerGlobalScope;
 
 enum PROXY_MODE {
+  /**
+   * Forward requests using the "rewrite" rule in vercel.json
+   * It's faster than the API function, but headers cannot be changed, so some sites may not work correctly.
+   */
   REWRITE,
   API_FUNCTION
 }
 
 const proxyWhiteList = [
-  "/inject.ts",
-  "/inject.js",
+  '^/inject.js$',
 ]
 
-async function proxy(mode: PROXY_MODE, req: Request, client: Client): Promise<Response> {
-  const clientURL = client.url.match("^((?:http|https):)//([^/]+)/page/(http|https)/([^/]+)(/.*)$");
-  if(!clientURL) return await fetch(req);
-  let [scheme, host, proxyScheme, proxyHost, proxyPath] = clientURL.slice(1);
+
+const clientURLMap = new Map<string, string>();
+
+function join(...args: string[]): string {
+  return '/' + args.map(i=>i.replace(/^\/|\/$/g, '')).filter(i=>i).join('/');
+}
+
+async function proxy(mode: PROXY_MODE, req: Request, clientURL: string): Promise<Response> {
+  const regex = clientURL.match(`^((?:http|https):)//([^/]+)${__PAGE_URI__}/(http|https)/([^/]+)(/[^?]*)(\\?.*)?$`);
+  if(!regex) return await fetch(req);
+  let [scheme, host, proxyScheme, proxyHost, proxyPath, proxySearch] = regex.slice(1);
   proxyScheme += ":";
 
   const requestURL = new URL(req.url);
   
-  // 使用白名单机制处理相对路径引用
-  if(requestURL.host === host) {
-    if(proxyWhiteList.includes(requestURL.pathname)) return await fetch(req);
-    
+  // Handle base path references with whitelist
+  if(requestURL.host === host && requestURL.protocol === scheme) {
+    if(proxyWhiteList.some(i=>new RegExp(i).test(requestURL.pathname))) return await fetch(req);
+
+    // For example, current page is http://localhost/https/example.com/abc/xxx,
+    // a script want to request relative url "def", that is: http://localhost/https/example.com/abc/def.
+    // In this case, we need to change the request URL to: http://localhost/abc/def
+    let baseURL = clientURL.slice(0, clientURL.lastIndexOf("/")) + '/';
+    if(req.url.startsWith(baseURL)) {
+      requestURL.pathname = join(proxyPath, req.url.slice(baseURL.length));
+      console.debug('[SW] base URL:', baseURL, ', request URL:', req.url);
+    }
+
+    // Then, change the request URL to: https://example.com/abc/def
     if(!requestURL.pathname.startsWith('/_immersed_')) {
       requestURL.port = '';
       requestURL.host = proxyHost;
@@ -32,7 +52,7 @@ async function proxy(mode: PROXY_MODE, req: Request, client: Client): Promise<Re
   
   let uri = `/${requestURL.protocol.slice(0, -1)}/${requestURL.host}${requestURL.pathname}${requestURL.search}`;
 
-  // 使用 Vercel 的 rewrite 转发请求，缺点是无法伪装 referer，所以这里使用 no-referrer 策略
+  // using no-referrer strategy here
   if(mode === PROXY_MODE.REWRITE) {
     return await fetch('/_immersed_rewrite' + uri, new Request(req, {
       referrerPolicy: 'no-referrer',
@@ -41,15 +61,15 @@ async function proxy(mode: PROXY_MODE, req: Request, client: Client): Promise<Re
   }
 
   if(mode === PROXY_MODE.API_FUNCTION) {
-    let url = '/_immersed_proxy' + uri;
-    // 避免 CSS 引用导致的嵌套代理，如：http://localhost/_immersed_proxy/http/localhost/_immersed_proxy/xxx.jpg
-    if(requestURL.host === host && requestURL.pathname.startsWith('/_immersed_proxy')) {
+    let url = __PROXY_URI__ + uri;
+    // Avoid nested proxies caused by CSS references, like: http://localhost/_immersed_proxy/http/localhost/_immersed_proxy/xxx.jpg
+    if(requestURL.host === host && requestURL.pathname.startsWith(__PROXY_URI__)) {
       url = requestURL.pathname;
     }
 
     const headers = new Headers(req.headers);
     
-    // 修正 referer
+    // Fix referer
     if(req.referrer) {
       const refererURL = new URL(req.referrer);
       
@@ -58,15 +78,13 @@ async function proxy(mode: PROXY_MODE, req: Request, client: Client): Promise<Re
         refererURL.protocol = proxyScheme;
         refererURL.host = proxyHost;
 
-        if(refererURL.pathname.startsWith('/_immersed_')) {
-          function getPosition(string: string, subString: string, index: number) {
-            return string.split(subString, index).join(subString).length;
-          }
-
-          refererURL.pathname = refererURL.pathname.slice(getPosition(refererURL.pathname, '/', 4));
+        if(refererURL.pathname.startsWith(__PROXY_URI__)) {
+          refererURL.pathname = refererURL.pathname.slice(__PROXY_URI__.length);
+          refererURL.pathname = refererURL.pathname.slice(refererURL.pathname.indexOf('/', 1));
+          refererURL.pathname = refererURL.pathname.slice(refererURL.pathname.indexOf('/', 1));
         }
 
-        if(req.referrer === client.url) {
+        if(req.referrer === clientURL) {
           refererURL.pathname = proxyPath;
         }
         
@@ -85,17 +103,27 @@ async function proxy(mode: PROXY_MODE, req: Request, client: Client): Promise<Re
   return await fetch(req);
 }
 
-self.addEventListener('message', console.debug);
+self.addEventListener('message', e => {
+  if(!(e.source instanceof WindowClient)) return;
+  if(e.data.type === 'register') {
+    clientURLMap.set(e.source.id, e.data.url);
+  }
+});
+
 self.addEventListener('install', console.debug);
 self.addEventListener('fetch', e=> {
   const allowSchemes = ['http://', 'https://'];
   if(!allowSchemes.some(i=>e.request.url.startsWith(i))) return;
 
+  let clientURL = clientURLMap.get(e.clientId);
+
   e.respondWith((async ()=>{
-    let client = await self.clients.get(e.clientId);
-    if(!client?.url) return await fetch(e.request);
+    if(!clientURL) {
+      clientURL = (await self.clients.get(e.clientId))?.url;
+      if(!clientURL) return await fetch(e.request);
+    }
     
-    return await proxy(PROXY_MODE.API_FUNCTION, e.request, client);
+    return await proxy(PROXY_MODE.API_FUNCTION, e.request, clientURL);
   })())
 });
 

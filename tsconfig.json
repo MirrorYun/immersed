@@ -28,6 +28,6 @@
       "@/*": ["*"]
     }
   },
-  "include": ["src", "sw.ts"],
+  "include": ["src", "api", "sw.ts", "inject.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

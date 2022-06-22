@@ -33,7 +33,7 @@ export default async function(config: AxiosRequestConfig & ProxyConfig): Promise
   }
 
   let headers: Record<string, string | string[]> = {};
-  let blacklist: string[] = [];
+  let blacklist: string[] = ["content-security-policy", "strict-transport-security", "permissions-policy"];
   if(config.responseType !== 'stream') {
     blacklist = blacklist.concat(["content-encoding", "content-length", "transfer-encoding"])
   }

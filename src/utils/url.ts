@@ -1,3 +1,5 @@
+import config from '../../config'
+
 export function encodeURL(url: string) {
   const _url = new URL(url);
   return `${_url.protocol.slice(0, -1)}/${_url.host}${_url.pathname}${_url.search}`;
@@ -11,10 +13,10 @@ export function decodeURL(url: string) {
 
 export function proxyURL(url: string) {
   const _url = new URL(url);
-  return `/_immersed_proxy/${_url.protocol.slice(0, -1)}/${_url.host}${_url.pathname}${_url.search}`;
+  return `${config.proxy_uri}/${_url.protocol.slice(0, -1)}/${_url.host}${_url.pathname}${_url.search}`;
 }
 
 export function pageURL(url: string) {
   const _url = new URL(url);
-  return `/page/${_url.protocol.slice(0, -1)}/${_url.host}${_url.pathname}${_url.search}`;
+  return `${config.page_uri}/${_url.protocol.slice(0, -1)}/${_url.host}${_url.pathname}${_url.search}`;
 }

@@ -1,5 +1,5 @@
 export default function() {
   return (
-    <div>Home</div>
+    <div>Home{__APP_VERSION__}</div>
   )
 }

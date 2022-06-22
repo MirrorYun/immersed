@@ -1,9 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import proxy from "../src/utils/proxy"
 import { proxyURL } from "../src/utils/url"
+import config from '../config'
 
 export default async function (req: VercelRequest, res: VercelResponse) {
-  const regex = req.url?.match("^/_immersed_proxy/(http|https)/([^/]+)(/.*)$");
+  const regex = req.url?.match(`^${config.proxy_uri}/(http|https)/([^/]+)(/.*)$`);
   if (!regex) {
     res.status(400).send("Invalid url");
     return;
@@ -39,7 +40,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     }
     
     stream.pipe(res);
-  } catch (error) {
+  } catch (error: any) {
     console.error(error.message);
     res.status(500);
     res.send(null);
