@@ -26,16 +26,18 @@ export default class FixElement extends InjectModule {
   
     function needProxy(url: string): boolean {
       if(new RegExp(`^(${location.protocol})?//${location.host}\\b`).test(url)) return false;
-      if(!allowSchemes.some(i=>url.startsWith(i))) return false;
+      if(/^\w+:\/\/\b/.test(url) && !allowSchemes.some(i=>url.startsWith(i))) return false;
       return true;
     }
   
-    if(node instanceof HTMLIFrameElement && needProxy(node.src)) {
-      node.src = pageURL(node.src);
+    if(node instanceof HTMLIFrameElement) {
+      const url = node.getAttribute('src');
+      if(url && needProxy(url)) node.setAttribute('src', pageURL(url));
     }
   
-    if(node instanceof HTMLAnchorElement && needProxy(node.href)) {
-      node.href = pageURL(node.href);
+    if(node instanceof HTMLAnchorElement) {
+      const url = node.getAttribute('href');
+      if(url && needProxy(url)) node.setAttribute('href', pageURL(url));
     }
   }
 
