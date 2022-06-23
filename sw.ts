@@ -110,7 +110,7 @@ self.addEventListener('message', e => {
   }
 });
 
-self.addEventListener('install', console.debug);
+self.addEventListener('install', e=>e.waitUntil(self.skipWaiting()));
 self.addEventListener('fetch', e=> {
   const allowSchemes = ['http://', 'https://'];
   if(!allowSchemes.some(i=>e.request.url.startsWith(i))) return;

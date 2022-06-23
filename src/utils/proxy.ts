@@ -33,12 +33,12 @@ export default async function(config: AxiosRequestConfig & ProxyConfig): Promise
   }
 
   let headers: Record<string, string | string[]> = {};
-  let blacklist: string[] = ["content-security-policy", "strict-transport-security", "permissions-policy"];
+  let blacklist: string[] = ["content-security-policy", "strict-transport-security", "permissions-policy", "set-cookie"];
   if(config.responseType !== 'stream') {
     blacklist = blacklist.concat(["content-encoding", "content-length", "transfer-encoding"])
   }
   for (const key of Object.keys(resp.headers)) {
-    if (blacklist.includes(key.toLowerCase())) continue;
+    if (blacklist.includes(key)) continue;
     headers[key] =  resp.headers[key];
   }
 

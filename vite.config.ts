@@ -1,7 +1,7 @@
 import { defineConfig, Plugin, ResolvedConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
-import { resolve } from 'path';
+import { resolve } from "path";
 import APP_CONFIG from "./config";
 
 // https://vitejs.dev/config/
@@ -38,7 +38,22 @@ interface ImmersedConfig {
 function immersed(config: ImmersedConfig): Plugin {
   let viteConfig: ResolvedConfig;
 
-  const name = "vite-plugin-immersed";
+  const name = "vite:immersed";
+
+  // https://github.com/antfu/vite-plugin-pwa/blob/main/src/constants.ts
+  const defaultInjectManifestVitePlugins = [
+    "alias",
+    "commonjs",
+    "vite:resolve",
+    "vite:esbuild",
+    "replace",
+    "vite:define",
+    "rollup-plugin-dynamic-import-variables",
+    "vite:esbuild-transpile",
+    "vite:json",
+    "vite:terser",
+  ];
+
   return {
     name,
     configResolved(resolvedConfig) {
@@ -49,30 +64,16 @@ function immersed(config: ImmersedConfig): Plugin {
       const builds = [
         {
           input: config.src_sw,
-          output: config.filename_sw
+          output: config.filename_sw,
         },
         {
           input: config.src_inject,
-          output: config.filename_inject
-        }
-      ]
+          output: config.filename_inject,
+        },
+      ];
 
-      // https://github.com/antfu/vite-plugin-pwa/blob/main/src/constants.ts
-      const defaultInjectManifestVitePlugins = [
-        'alias',
-        'commonjs',
-        'vite:resolve',
-        'vite:esbuild',
-        'replace',
-        'vite:define',
-        'rollup-plugin-dynamic-import-variables',
-        'vite:esbuild-transpile',
-        'vite:json',
-        'vite:terser',
-      ]
-      
       const plugins = viteConfig.plugins.filter(i=>defaultInjectManifestVitePlugins.includes(i.name));
-      const { rollup } = await import('rollup');
+      const { rollup } = await import("rollup");
 
       for (const build of builds) {
         const bundle = await rollup({
@@ -81,30 +82,55 @@ function immersed(config: ImmersedConfig): Plugin {
         });
         try {
           await bundle.write({
-            format: 'es',
-            exports: 'none',
+            format: "es",
+            exports: "none",
             inlineDynamicImports: true,
-            file: resolve(viteConfig.root, viteConfig.build.outDir || 'dist', build.output),
+            file: resolve(
+              viteConfig.root,
+              viteConfig.build.outDir || "dist",
+              build.output
+            ),
             sourcemap: viteConfig.build.sourcemap,
-          })
+          });
         } finally {
-          await bundle.close()
+          await bundle.close();
         }
       }
     },
-    
-    transform(code, id) {
-      if (viteConfig.command === "serve") {
-        if (
-          id.endsWith("/" + config.src_sw) ||
-          id.endsWith("/" + config.src_inject)
-        ) {
-          const regex = `\\b(${Object.keys(viteConfig.define).join("|")})\\b`;
-          return code.replace(new RegExp(regex, "g"), (_, match) => {
-            return "" + viteConfig.define[match];
+
+    async transform(code, id) {
+      if (viteConfig.command !== "serve") return;
+
+      if (id.endsWith("/" + config.src_inject)) {
+        const plugins = viteConfig.plugins.filter(i=>defaultInjectManifestVitePlugins.includes(i.name));
+        const { rollup } = await import("rollup");
+
+        const bundle = await rollup({
+          input: config.src_inject,
+          plugins,
+        });
+
+        try {
+          let result = await bundle.generate({
+            format: "es",
+            exports: "none",
+            inlineDynamicImports: true,
+            sourcemap: viteConfig.build.sourcemap,
           });
+          code = result.output[0].code;
+        } finally {
+          await bundle.close();
         }
       }
+
+      if (id.endsWith("/" + config.src_sw) || id.endsWith("/" + config.src_inject)) {
+        const regex = `\\b(${Object.keys(viteConfig.define).join("|")})\\b`;
+        code = code.replace(new RegExp(regex, "g"), (_, match) => {
+          return "" + viteConfig.define[match];
+        });
+      }
+
+      return code;
     },
 
     configureServer(server) {

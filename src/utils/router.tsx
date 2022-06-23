@@ -3,22 +3,33 @@ import { match, pathToRegexp } from "path-to-regexp";
 
 interface RouterContext {
   path: string;
-  setPath(path: string): void;
   push(path: string): void;
+  replace(path: string): void;
   back(): void;
 }
 
 function useProvideRouter(): RouterContext {
   const [path, setPath] = useState(window.location.pathname);
 
+  useEffect(()=>{
+    let listener = ()=> {
+      setPath(window.location.pathname);
+    }
+    window.addEventListener('popstate', listener);
+    return ()=> window.removeEventListener('popstate', listener);
+  })
+
   return {
     path,
-    setPath,
     push(newPath: string) {
       if(path == newPath) return;
       
       setPath(newPath)
       window.history.pushState({}, '', newPath)
+    },
+    replace(newPath: string) {
+      setPath(newPath)
+      window.history.replaceState({}, '', newPath)
     },
     back() {
       window.history.back()
@@ -30,14 +41,6 @@ const routerCtx = createContext<RouterContext>(null!);
 export function Router({ children }: { children: ReactNode }) {
   const router = useProvideRouter();
 
-  useEffect(()=>{
-    let listener = ()=> {
-      router.setPath(window.location.pathname);
-    }
-    window.addEventListener('popstate', listener);
-    return ()=> window.removeEventListener('popstate', listener);
-  })
-
   return (
     <routerCtx.Provider value={router}>
       {children}
@@ -45,9 +48,8 @@ export function Router({ children }: { children: ReactNode }) {
   )
 }
 
-export function useRouter(): Omit<RouterContext, 'setPath'> {
-  let {setPath, ...rest} = useContext(routerCtx);
-  return {...rest};
+export function useRouter(): RouterContext {
+  return useContext(routerCtx);
 }
 
 interface RouteOption {
