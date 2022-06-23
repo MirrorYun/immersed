@@ -8,35 +8,26 @@ export default function() {
   let [errorMsg, setErrorMsg] = useState('');
   let [error, setError] = useState(false);
 
-  const validate = (input: string) => {
-    let url: URL;
-    try {
-      url = new URL(input);
-    } catch (error: any) {
-      return error.message;
-    }
-    const validProtocols = ['http:', 'https:'];
-    if(!validProtocols.includes(url.protocol)) return 'Invalid protocol';
-    
-    return '';
-  }
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
-    if(!validate(e.target.value)) {
-      setErrorMsg('');
-    }
+    setErrorMsg('');
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      const msg = validate(input);
-      if(msg) {
-        setErrorMsg(msg);
+      if(!input) {
+        setErrorMsg('Please input a url or a keyword');
         setError(true);
         return
       }
 
-      location.href = pageURL(input);
+      try {
+        const url = new URL(input);
+        location.href = pageURL(input);
+        return
+      } finally {
+        location.href = __PAGE_URI__ + '/https/www.google.com/search?q=' + encodeURIComponent(input);
+      }
     }
   }
 
