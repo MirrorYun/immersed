@@ -2,8 +2,8 @@ import { InjectModule, FixElement, InjectConfig, IsolatedCookie, IsolatedLocalSt
 
 console.log('[Inject] Initing...');
 if(!navigator.serviceWorker.controller) {
-  console.warn('[Inject] Service worker has not been registered.');
   location.href = `/init?from=inject&uri=` + encodeURIComponent(`${location.pathname}${location.search}`);
+  throw new Error('[Inject] Service worker has not been registered.');
 }
 
 const serviceWorker = window.navigator.serviceWorker.controller!;
@@ -12,8 +12,15 @@ serviceWorker.postMessage({
   url: location.href,
 });
 
+const regex = location.href.match(`^(?:http|https)://[^/]+${__PAGE_URI__}/(http|https)/([^/]+)(/[^?]*)(\\?.*)?$`);
+if(!regex) throw new Error('Invalid url');
+
 const injectConfig: InjectConfig = {
-  serviceWorker
+  serviceWorker,
+  scheme: regex[1],
+  host: regex[2],
+  path: regex[3],
+  search: regex[4],
 }
 
 interface InjectConstructor {

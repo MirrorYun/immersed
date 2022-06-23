@@ -1,5 +1,9 @@
 export interface InjectConfig {
   serviceWorker: ServiceWorker;
+  scheme: string;
+  host: string;
+  path: string;
+  search: string;
 }
 
 export abstract class InjectModule {

@@ -1,5 +1,7 @@
 import config from '../../config'
 
+const allowProtocol = ['http:', 'https:'];
+
 export function encodeURL(url: string) {
   const _url = new URL(url);
   return `${_url.protocol.slice(0, -1)}/${_url.host}${_url.pathname}${_url.search}`;
@@ -18,5 +20,6 @@ export function proxyURL(url: string) {
 
 export function pageURL(url: string) {
   const _url = new URL(url);
+  if(!allowProtocol.includes(_url.protocol)) throw new Error('Not allow protocol');
   return `${config.page_uri}/${_url.protocol.slice(0, -1)}/${_url.host}${_url.pathname}${_url.search}`;
 }

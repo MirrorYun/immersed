@@ -21,13 +21,14 @@ export default function() {
         return
       }
 
+      let href: string;
       try {
-        const url = new URL(input);
-        location.href = pageURL(input);
-        return
-      } finally {
-        location.href = __PAGE_URI__ + '/https/www.google.com/search?q=' + encodeURIComponent(input);
+        href = pageURL(input);
+      } catch (_) {
+        href = __PAGE_URI__ + '/https/www.google.com/search?q=' + encodeURIComponent(input);
       }
+
+      location.href = href;
     }
   }
 
